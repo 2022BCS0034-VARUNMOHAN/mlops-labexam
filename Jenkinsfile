@@ -121,7 +121,7 @@ print(val if val is not None else 'NOT_FOUND')
                 echo "============================================"
                 echo "STAGE 5: Sending INVALID request"
                 echo "Name: ${YOUR_NAME} | Roll No: ${YOUR_ROLL_NO}"
-                echo "Sending request with missing required fields"
+                echo "Expecting 4xx or 5xx error"
                 echo "============================================"
                 sh """
                     CONTAINER_IP=\$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${CONTAINER_NAME})
@@ -136,8 +136,12 @@ print(val if val is not None else 'NOT_FOUND')
                     echo "Raw Response: \$HTTP_BODY"
                     echo "HTTP Status: \$HTTP_CODE"
 
-                    echo "FAIL: Stage 5 caught invalid input - pipeline marked as FAILED as required"
-                    exit 1
+                    if echo "\$HTTP_CODE" | grep -qE "^[45][0-9][0-9]\$"; then
+                        echo "PASS: API correctly returned error \$HTTP_CODE for invalid input"
+                    else
+                        echo "FAIL: Expected 4xx/5xx but got \$HTTP_CODE"
+                        exit 1
+                    fi
                 """
             }
         }
@@ -175,7 +179,6 @@ print(val if val is not None else 'NOT_FOUND')
         failure {
             echo "============================================"
             echo "PIPELINE STATUS: FAILURE"
-            echo "Stage 5 caught invalid input - pipeline FAILED as expected"
             echo "Name: ${YOUR_NAME} | Roll No: ${YOUR_ROLL_NO}"
             echo "============================================"
             sh "docker stop ${CONTAINER_NAME} || true"
